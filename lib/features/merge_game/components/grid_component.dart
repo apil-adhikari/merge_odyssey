@@ -67,7 +67,7 @@ class GridComponent extends PositionComponent {
       final nx = x + dx;
       final ny = y + dy;
 
-      if (grid._isValidPosition(nx, ny) && grid.canMergeAt(x, y, nx, ny)) {
+      if (grid.isValidPosition(nx, ny) && grid.canMergeAt(x, y, nx, ny)) {
         final index = ny * grid.width + nx;
         if (index >= 0 && index < _tiles.length) {
           _tiles[index].setHighlight(true);
