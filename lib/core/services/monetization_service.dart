@@ -1,0 +1,191 @@
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:admob_flutter/admob_flutter.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:merge_odyssey/core/services/firebase_service.dart';
+
+class MonetizationService {
+  static final MonetizationService _instance = MonetizationService._internal();
+  factory MonetizationService.instance() => _instance;
+  MonetizationService._internal();
+
+  final InAppPurchase _iap = InAppPurchase.instance;
+  Stream<List<PurchaseDetails>>? _subscription;
+  late RemoteConfig _remoteConfig;
+
+  // Product IDs for IAP
+  static const List<String> _productIds = [
+    'coins_pack_1', // Small coin pack
+    'coins_pack_2', // Medium coin pack
+    'coins_pack_3', // Large coin pack
+    'gems_pack_1', // Small gem pack
+    'gems_pack_2', // Medium gem pack
+    'gems_pack_3', // Large gem pack
+    'premium_pass', // Monthly subscription
+  ];
+
+  // Ad unit IDs (replace with your actual IDs)
+  static const String _rewardedAdUnitId = 'YOUR_REWARDED_AD_UNIT_ID';
+  static const String _interstitialAdUnitId = 'YOUR_INTERSTITIAL_AD_UNIT_ID';
+
+  List<ProductDetails> _products = [];
+
+  Future<void> initialize() async {
+    // Initialize remote config for A/B testing
+    _remoteConfig = await RemoteConfig.instance;
+    await _remoteConfig.setDefaults(<String, dynamic>{
+      'rewarded_ad_frequency': 3, // Show rewarded ad every 3 levels
+      'interstitial_ad_frequency': 5, // Show interstitial every 5 levels
+      'iap_discount_percentage': 0, // Discount percentage for IAP
+      'free_coins_daily': 100, // Daily free coins
+      'free_gems_daily': 5, // Daily free gems
+    });
+    await _remoteConfig.fetchAndActivate();
+
+    // Load products
+    await _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final response = await _iap.queryProductDetails(_productIds.toSet());
+    if (response.notFoundIDs.isNotEmpty) {
+      print('Products not found: ${response.notFoundIDs}');
+    }
+    _products = response.productDetails;
+  }
+
+  // Get available products
+  List<ProductDetails> getProducts() {
+    return _products;
+  }
+
+  // Purchase product
+  Future<bool> purchaseProduct(String productId) async {
+    final product = _products.firstWhere(
+      (p) => p.id == productId,
+      orElse: () => throw Exception('Product not found'),
+    );
+
+    final purchaseParam = PurchaseParam(productDetails: product);
+    await _iap.buyNonConsumable(purchaseParam: purchaseParam);
+
+    // Listen for purchase updates
+    _subscription = _iap.purchaseStream.listen(_handlePurchaseUpdate);
+
+    return true;
+  }
+
+  void _handlePurchaseUpdate(List<PurchaseDetails> purchases) {
+    for (final purchase in purchases) {
+      if (purchase.status == PurchaseStatus.purchased) {
+        _deliverProduct(purchase);
+      } else if (purchase.status == PurchaseStatus.error) {
+        print('Purchase error: ${purchase.error}');
+      }
+    }
+  }
+
+  void _deliverProduct(PurchaseDetails purchase) {
+    // Deliver the purchased product to the user
+    final productId = purchase.productID;
+    final firebaseService = FirebaseService.instance();
+
+    // Update player progress based on purchase
+    // This would typically happen on the server side for security
+    switch (productId) {
+      case 'coins_pack_1':
+        // Add 500 coins
+        break;
+      case 'coins_pack_2':
+        // Add 1200 coins
+        break;
+      case 'coins_pack_3':
+        // Add 2500 coins
+        break;
+      case 'gems_pack_1':
+        // Add 100 gems
+        break;
+      case 'gems_pack_2':
+        // Add 250 gems
+        break;
+      case 'gems_pack_3':
+        // Add 600 gems
+        break;
+      case 'premium_pass':
+        // Activate premium subscription
+        break;
+    }
+
+    // Mark purchase as acknowledged
+    if (purchase.pendingCompletePurchase) {
+      _iap.completePurchase(purchase);
+    }
+  }
+
+  // Show rewarded ad for bonus
+  Future<int> showRewardedAdForBonus() async {
+    // This would integrate with AdMob rewarded ads
+    // Return bonus amount if ad was watched successfully
+    return 100; // Placeholder bonus
+  }
+
+  // Show interstitial ad
+  Future<void> showInterstitialAd() async {
+    // Show interstitial ad between levels
+  }
+
+  // Get remote config values
+  int getRewardedAdFrequency() {
+    return _remoteConfig.getInt('rewarded_ad_frequency');
+  }
+
+  int getInterstitialAdFrequency() {
+    return _remoteConfig.getInt('interstitial_ad_frequency');
+  }
+
+  int getIapDiscountPercentage() {
+    return _remoteConfig.getInt('iap_discount_percentage');
+  }
+
+  int getDailyFreeCoins() {
+    return _remoteConfig.getInt('free_coins_daily');
+  }
+
+  int getDailyFreeGems() {
+    return _remoteConfig.getInt('free_gems_daily');
+  }
+
+  // Calculate discounted price
+  double getDiscountedPrice(double originalPrice) {
+    final discount = getIapDiscountPercentage();
+    return originalPrice * (1 - discount / 100);
+  }
+
+  // Track monetization events
+  void trackAdWatched(String adType) {
+    FirebaseService.instance().logEvent('ad_watched', {'ad_type': adType});
+  }
+
+  void trackPurchase(String productId, double price) {
+    FirebaseService.instance().logEvent('purchase_made', {
+      'product_id': productId,
+      'price': price,
+    });
+  }
+
+  void trackSubscriptionStart(String subscriptionId) {
+    FirebaseService.instance().logEvent('subscription_started', {
+      'subscription_id': subscriptionId,
+    });
+  }
+
+  void trackSubscriptionCancel(String subscriptionId) {
+    FirebaseService.instance().logEvent('subscription_cancelled', {
+      'subscription_id': subscriptionId,
+    });
+  }
+
+  // Cleanup
+  void dispose() {
+    _subscription?.cancel();
+  }
+}

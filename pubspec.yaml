@@ -1,0 +1,63 @@
+name: merge_odyssey
+description: A viral hybrid casual merge adventure game built with Flutter and Flame
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+
+  # Game Engine
+  flame: ^1.10.0
+  flame_audio: ^2.0.0
+
+  # State Management
+  riverpod: ^2.4.0
+  flutter_riverpod: ^2.4.0
+
+  # Backend Services
+  firebase_core: ^2.24.0
+  firebase_auth: ^4.15.0
+  cloud_firestore: ^4.14.0
+  firebase_database: ^10.4.0
+  firebase_analytics: ^10.7.0
+  firebase_dynamic_links: ^5.4.16
+
+  # Monetization
+  admob_flutter: ^3.0.0
+  in_app_purchase: ^3.1.0
+
+  # AI/ML
+  google_ml_kit: ^0.16.0
+
+  # Utilities
+  share_plus: ^7.2.0
+  url_launcher: ^6.2.1
+  path_provider: ^2.1.1
+  shared_preferences: ^2.2.2
+  cached_network_image: ^3.3.0
+  image_picker: ^1.0.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flame_lint: ^1.1.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/sounds/
+    - assets/json/
+  fonts:
+    - family: MergeFont
+      fonts:
+        - asset: assets/fonts/MergeFont-Regular.ttf
+        - asset: assets/fonts/MergeFont-Bold.ttf
+          weight: 700

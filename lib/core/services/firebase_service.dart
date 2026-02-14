@@ -1,0 +1,216 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
+import 'package:merge_odyssey/core/models/player_progress.dart';
+import 'package:merge_odyssey/core/models/challenge.dart';
+
+class FirebaseService {
+  static final FirebaseService _instance = FirebaseService._internal();
+  factory FirebaseService.instance() => _instance;
+  FirebaseService._internal();
+
+  FirebaseAuth get auth => FirebaseAuth.instance;
+  FirebaseFirestore get firestore => FirebaseFirestore.instance;
+  FirebaseAnalytics get analytics => FirebaseAnalytics.instance;
+  FirebaseDynamicLinks get dynamicLinks => FirebaseDynamicLinks.instance;
+
+  Future<void> initialize() async {
+    // Initialize services
+    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+    await FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+  }
+
+  // User authentication
+  Future<UserCredential?> signInAnonymously() async {
+    try {
+      return await auth.signInAnonymously();
+    } catch (e) {
+      print('Error signing in anonymously: $e');
+      return null;
+    }
+  }
+
+  Future<UserCredential?> signInWithGoogle() async {
+    // Google sign-in implementation would go here
+    // This requires additional setup with Google Sign-In package
+    throw UnimplementedError('Google sign-in not implemented in this sample');
+  }
+
+  // Player progress management
+  Future<PlayerProgress?> getPlayerProgress(String playerId) async {
+    try {
+      final doc = await firestore.collection('players').doc(playerId).get();
+      if (doc.exists) {
+        return PlayerProgress.fromJson(doc.data()!);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting player progress: $e');
+      return null;
+    }
+  }
+
+  Future<bool> savePlayerProgress(PlayerProgress progress) async {
+    try {
+      await firestore
+          .collection('players')
+          .doc(progress.playerId)
+          .set(progress.toJson());
+      return true;
+    } catch (e) {
+      print('Error saving player progress: $e');
+      return false;
+    }
+  }
+
+  // Challenge management
+  Future<List<Challenge>> getOfficialChallenges() async {
+    try {
+      final querySnapshot = await firestore
+          .collection('challenges')
+          .where('isOfficial', isEqualTo: true)
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => Challenge.fromJson(doc.data()))
+          .toList();
+    } catch (e) {
+      print('Error getting official challenges: $e');
+      return [];
+    }
+  }
+
+  Future<List<Challenge>> getUserCreatedChallenges(String userId) async {
+    try {
+      final querySnapshot = await firestore
+          .collection('challenges')
+          .where('authorId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => Challenge.fromJson(doc.data()))
+          .toList();
+    } catch (e) {
+      print('Error getting user challenges: $e');
+      return [];
+    }
+  }
+
+  Future<bool> saveChallenge(Challenge challenge) async {
+    try {
+      await firestore
+          .collection('challenges')
+          .doc(challenge.id)
+          .set(challenge.toJson());
+      return true;
+    } catch (e) {
+      print('Error saving challenge: $e');
+      return false;
+    }
+  }
+
+  // Analytics
+  Future<void> logEvent(
+      String eventName, Map<String, Object> parameters) async {
+    await analytics.logEvent(name: eventName, parameters: parameters);
+  }
+
+  Future<void> logLevelComplete(
+      int level, int score, int time, int moves) async {
+    await analytics.logEvent(
+      name: 'level_complete',
+      parameters: {
+        'level': level,
+        'score': score,
+        'time_seconds': time,
+        'moves_used': moves,
+      },
+    );
+  }
+
+  Future<void> logMergeAction(String itemId, int tier, int combo) async {
+    await analytics.logEvent(
+      name: 'item_merged',
+      parameters: {
+        'item_id': itemId,
+        'item_tier': tier,
+        'combo_size': combo,
+      },
+    );
+  }
+
+  // Dynamic links for sharing challenges
+  Future<String?> createChallengeShareLink(Challenge challenge) async {
+    try {
+      final dynamicLinkParams = DynamicLinkParameters(
+        link: Uri.parse(
+            'https://mergeodyssey.page.link/challenge/${challenge.id}'),
+        androidParameters: AndroidParameters(
+          packageName: 'com.example.mergeodyssey',
+          minimumVersion: 1,
+        ),
+        iosParameters: IOSParameters(
+          bundleId: 'com.example.mergeodyssey',
+          minimumVersion: '1.0.0',
+        ),
+        socialMetaTagParameters: SocialMetaTagParameters(
+          title: 'Merge Odyssey Challenge: ${challenge.title}',
+          description: challenge.description,
+        ),
+      );
+
+      final shortLink = await dynamicLinks.buildShortLink(dynamicLinkParams);
+      return shortLink.shortUrl.toString();
+    } catch (e) {
+      print('Error creating challenge link: $e');
+      return null;
+    }
+  }
+
+  // Leaderboards
+  Future<List<Map<String, dynamic>>> getTopPlayersByScore(int limit) async {
+    try {
+      final querySnapshot = await firestore
+          .collection('players')
+          .orderBy('totalScore', descending: true)
+          .limit(limit)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => {
+                'playerId': doc.id,
+                'score': doc.data()['totalScore'] ?? 0,
+                'level': doc.data()['level'] ?? 1,
+              })
+          .toList();
+    } catch (e) {
+      print('Error getting top players: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTopPlayersByMerges(int limit) async {
+    try {
+      final querySnapshot = await firestore
+          .collection('players')
+          .orderBy('totalMerges', descending: true)
+          .limit(limit)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => {
+                'playerId': doc.id,
+                'merges': doc.data()['totalMerges'] ?? 0,
+                'level': doc.data()['level'] ?? 1,
+              })
+          .toList();
+    } catch (e) {
+      print('Error getting top merger players: $e');
+      return [];
+    }
+  }
+}
