@@ -9,19 +9,19 @@ class Grid {
       : cells = List.generate(height, (_) => List.filled(width, null));
 
   Item? getItemAt(int x, int y) {
-    if (_isValidPosition(x, y)) {
+    if (isValidPosition(x, y)) {
       return cells[y][x];
     }
     return null;
   }
 
   void setItemAt(int x, int y, Item? item) {
-    if (_isValidPosition(x, y)) {
+    if (isValidPosition(x, y)) {
       cells[y][x] = item;
     }
   }
 
-  bool _isValidPosition(int x, int y) {
+  bool isValidPosition(int x, int y) {
     return x >= 0 && x < width && y >= 0 && y < height;
   }
 
@@ -43,7 +43,7 @@ class Grid {
 
   // Check if two adjacent items can be merged
   bool canMergeAt(int x1, int y1, int x2, int y2) {
-    if (!_isValidPosition(x1, y1) || !_isValidPosition(x2, y2)) {
+    if (!isValidPosition(x1, y1) || !isValidPosition(x2, y2)) {
       return false;
     }
 
